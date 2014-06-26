@@ -1,0 +1,101 @@
+(ns midimatrix.core
+  (:require
+    [overtone.studio.midi :refer :all]
+    [quil.core :as q]))
+
+;(defonce midi-out (midi-find-connected-receivers "TR-8"))
+
+(defonce midi-out (midi-find-connected-receivers "IAC Driver Bus 1"))
+
+(defn setup []
+  (q/smooth)
+  (q/frame-rate 30)
+  (q/background 255))
+
+(def grid
+  (atom [
+         {:step 0 :seq [1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0] :length 15 :name "BD" :midi-note 36}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 15 :name "SD" :midi-note 38}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 8  :name "LT" :midi-note 43}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 9  :name "MT" :midi-note 47}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 8  :name "HT" :midi-note 40}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 8  :name "RS" :midi-note 37}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 7  :name "HC" :midi-note 39}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 11 :name "CH" :midi-note 42}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 2  :name "OH" :midi-note 46}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 2  :name "CC" :midi-note 49}
+         {:step 0 :seq [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0] :length 2  :name "RC" :midi-note 51}
+        ]))
+
+(defn advance-step [grid]
+  (for [row grid]
+    (if (< (:step row) (:length row))
+      (update-in row [:step] inc)
+      (assoc-in row [:step] 0))))
+
+(defn button [x y status]
+  (q/stroke-weight 0)
+
+  (cond
+    (= status :step) (q/fill (q/color 255 0 0))
+    (= status :step-on) (q/fill (q/color 205 80 255))
+
+    (= status :disabled) (q/fill 50)
+    (= status :disabled-on) (q/fill 90)
+    (= status :on) (q/fill 170)
+    (= status :off) (q/fill (q/color 255 255 0)))
+
+  (q/rect (+ 55 (* y 30)) (+ (* x 30) 20) 20 20))
+
+(defn draw-matrix [grid]
+  (doseq [x (range (count grid)) y (range (count (-> grid (nth x) :seq)))]
+    (let [row (-> grid (nth x))
+          cell (-> row :seq (nth y))
+          status (cond
+                   (and (> y (:length row)) (> cell 0)) :disabled-on
+                   (> y (:length row)) :disabled
+                   (and (= y (:step row)) (> cell 0)) :step-on
+                   (= y (:step row)) :step
+                   (> cell 0) :off
+                   :else :on
+                 )]
+      (button x y status))))
+
+(defn trigger [grid]
+  (doseq [x (range (count grid))]
+    (let [row (-> grid (nth x))
+          cell (-> row :seq (nth (:step row)))]
+         (if (> cell 0)
+           (midi-note (first midi-out) (:midi-note row) 100 100 9)))))
+
+(defn draw-labels []
+  (doseq [x (range (count @grid))]
+    (q/fill 100)
+    (q/text (-> @grid (nth x) :name) 20 (+ 35 (* x 30)))))
+
+(defn draw []
+  (q/background 32)
+  (draw-labels)
+
+  (when
+    (= (mod (q/frame-count) 4) 0)
+      (swap! grid advance-step)
+      (trigger @grid))
+
+  (draw-matrix @grid))
+
+(defn toggle-button []
+  (let [x (int (- (Math/round (float (/ (q/mouse-y) 30))) 1))
+        y (int (- (Math/round (float (/ (q/mouse-x) 30))) 2))
+        cell (get-in (vec @grid) [x :seq y])
+        toggled-value (if (> cell 0) 0 100)]
+    (if (q/key-pressed?)
+      (reset! grid (assoc-in (vec @grid) [x :length] y))
+      (reset! grid (assoc-in (vec @grid) [x :seq y] toggled-value)))))
+
+(q/defsketch example
+  :title ":midi-seq"
+  :setup setup
+  :draw draw
+  :mouse-pressed toggle-button
+  :size [540 355])
