@@ -33,10 +33,10 @@
 (def last-clicked (atom [100 100]))
 
 (defn advance-step [grid]
-  (for [row grid]
+  (vec (for [row grid]
     (if (< (:step row) (:length row))
       (update-in row [:step] inc)
-      (assoc-in row [:step] 0))))
+      (assoc-in row [:step] 0)))))
 
 (defn button [x y status]
   (q/stroke-weight 0)
@@ -95,8 +95,8 @@
         toggled-value (if (> cell 0) 0 100)]
     (reset! last-clicked [x y])
     (if (q/key-pressed?)
-      (reset! grid (assoc-in (vec @grid) [x :length] y))
-      (reset! grid (assoc-in (vec @grid) [x :seq y] toggled-value)))))
+      (reset! grid (assoc-in @grid [x :length] y))
+      (reset! grid (assoc-in @grid [x :seq y] toggled-value)))))
 
 (defn drag-mouse []
   (let [x (int (- (Math/round (float (/ (q/mouse-y) 30))) 1))
