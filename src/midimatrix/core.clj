@@ -1,11 +1,7 @@
 (ns midimatrix.core
-  (:require
-    [overtone.studio.midi :refer :all]
-    [quil.core :as q]))
-
-(defonce midi-out (midi-find-connected-receivers "TR-8"))
-
-;(defonce midi-out (midi-find-connected-receivers "IAC Driver Bus 1"))
+  (:require [overtone.live :refer :all]
+            [overtone.inst.drum :refer [kick snare tom closed-hat open-hat bing haziti-clap]]
+            [quil.core :as q]))
 
 (defn setup []
   (q/smooth)
@@ -17,17 +13,13 @@
 
 (def grid
   (atom [
-         {:step 0 :seq [1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 0 0 0 1 0 1 0] :length 15 :name "BD" :midi-note 36}
-         {:step 0 :seq (gen-cells) :length 15 :name "SD" :midi-note 38}
-         {:step 0 :seq (gen-cells) :length 15 :name "LT" :midi-note 43}
-         {:step 0 :seq (gen-cells) :length 15 :name "MT" :midi-note 47}
-         {:step 0 :seq (gen-cells) :length 15 :name "HT" :midi-note 40}
-         {:step 0 :seq (gen-cells) :length 15 :name "RS" :midi-note 37}
-         {:step 0 :seq (gen-cells) :length 15 :name "HC" :midi-note 39}
-         {:step 0 :seq (gen-cells) :length 15 :name "CH" :midi-note 42}
-         {:step 0 :seq (gen-cells) :length 15 :name "OH" :midi-note 46}
-         {:step 0 :seq (gen-cells) :length 15 :name "CC" :midi-note 49}
-         {:step 0 :seq (gen-cells) :length 15 :name "RC" :midi-note 51}
+         {:step 0 :seq (gen-cells) :length 15 :name "BD" :sample kick}
+         {:step 0 :seq (gen-cells) :length 15 :name "SD" :sample snare}
+         {:step 0 :seq (gen-cells) :length 15 :name "LT" :sample tom}
+         {:step 0 :seq (gen-cells) :length 15 :name "HC" :sample haziti-clap}
+         {:step 0 :seq (gen-cells) :length 15 :name "CH" :sample closed-hat}
+         {:step 0 :seq (gen-cells) :length 15 :name "OH" :sample open-hat}
+         {:step 0 :seq (gen-cells) :length 15 :name "BI" :sample bing}
         ]))
 
 (def last-clicked (atom [100 100]))
@@ -70,7 +62,7 @@
     (let [row (-> grid (nth x))
           cell (-> row :seq (nth (:step row)))]
          (if (> cell 0)
-           (midi-note (first midi-out) (:midi-note row) 100 100 9)))))
+           ((:sample row)))))) 
 
 (defn draw-labels []
   (doseq [x (range (count @grid))]
@@ -104,10 +96,10 @@
     (when (not (= @last-clicked [x y]))
       (toggle-button))))
 
-(q/defsketch example
+(q/defsketch sktch
   :title ":midi-seq"
   :setup setup
   :draw draw
   :mouse-pressed toggle-button
   :mouse-dragged drag-mouse
-  :size [1020 355])
+  :size [1020 (+ 35 (* (count @grid) 30))])
